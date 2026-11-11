@@ -28,7 +28,7 @@
             if (data.ok) {
                 document.getElementById("msg").innerText = "تم إرسال الإشعار بنجاح!";
             } else {
-                document.getElementById("msg").innerText = "خطأ من تيليجرام: " + (data.description || "غير معروف");
+                document.getElementById("msg").innerText = "خطأ: " + (data.description || "غير معروف");
             }
         })
         .catch(error => {
