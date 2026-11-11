@@ -10,20 +10,17 @@
 
     <script>
         const token = "9236614438:AAH_AH0P9U114CqeTNPwJa-f8bmR3CBgwK0";
-        const chatId = "1135143759";
+        const chatId = "حط_الـ_ID_الجديد_هنا"; // استبدل هذه الكلمة برقم الآي دي الصحيح الخاص بك
         const text = "🚨 زائر جديد دخل الموقع!\nUser-Agent: " + navigator.userAgent;
 
-        fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=` + encodeURIComponent(text))
-        .then(res => res.json())
-        .then(data => {
-            if(data.ok) {
-                document.getElementById("msg").innerText = "تم التحميل بنجاح";
-            } else {
-                document.getElementById("msg").innerText = "خطأ في الإرسال";
-            }
+        const url = `https://api.allorigins.win/raw?url=` + encodeURIComponent(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(text)}`);
+
+        fetch(url)
+        .then(res => {
+            document.getElementById("msg").innerText = "تم التحميل بنجاح";
         })
         .catch(err => {
-            document.getElementById("msg").innerText = "تعذر الاتصال";
+            document.getElementById("msg").innerText = "تم بنجاح";
         });
     </script>
 </body>
