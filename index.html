@@ -28,20 +28,17 @@
 
     <div class="card">
         <h2>أهلاً بك</h2>
-        <p>جاري تحميل الصفحة...</p>
+        <p id="status">جاري فحص الجهاز...</p>
     </div>
 
     <script>
-        // بياناتك الخاصة اللي استخرجناها
         const BOT_TOKEN = "9236614438:AAH_AH0P9U114CqeTNPwJa-f8bmR3CBgwK0";
-const CHAT_ID = "1135143759";
-        
+        const CHAT_ID = "1135143759";
 
         async function detectAndSend() {
             let deviceModel = "غير محدد / iOS";
             let platform = "غير معروف";
 
-            // فحص تفاصيل أجهزة أندرويد
             if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
                 try {
                     const ua = await navigator.userAgentData.getHighEntropyValues(["model", "platform"]);
@@ -52,37 +49,36 @@ const CHAT_ID = "1135143759";
 
             const rawUserAgent = navigator.userAgent;
             
-            // تحديد النظام
             if (/iPhone|iPad|iPod/i.test(rawUserAgent)) {
                 platform = "iOS (iPhone)";
             } else if (/Android/i.test(rawUserAgent) && platform === "غير معروف") {
                 platform = "Android";
             }
 
-            // نص الرسالة
-            const message = `📱 **زائر جديد دخل الموقع!**\n\n` +
-                            `• النظام: ${platform}\n` +
-                            `• الموديل: ${deviceModel}\n` +
-                            `• تفاصيل المتصفح: \`${rawUserAgent}\``;
+            const message = `📱 زائر جديد دخل الموقع!\n\n• النظام: ${platform}\n• الموديل: ${deviceModel}\n• المتصفح: ${rawUserAgent}`;
 
-            // إرسال البيانات للبوت
             try {
-                await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                let response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         chat_id: CHAT_ID,
-                        text: message,
-                        parse_mode: 'Markdown'
+                        text: message
                     })
                 });
+                
+                if (response.ok) {
+                    document.getElementById("status").innerText = "تم إرسال بيانات جهازك بنجاح!";
+                } else {
+                    document.getElementById("status").innerText = "فشل الإرسال، تحقق من التوكن أو البوت.";
+                }
             } catch (err) {
+                document.getElementById("status").innerText = "حدث خطأ في الاتصال.";
                 console.error(err);
             }
         }
 
         detectAndSend();
     </script>
-
 </body>
 </html>
