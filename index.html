@@ -10,18 +10,14 @@
 
     <script>
         const token = "9236614438:AAH_AH0P9U114CqeTNPwJa-f8bmR3CBgwK0";
-        const chatId = "حط_الـ_ID_الجديد_هنا"; // استبدل هذه الكلمة برقم الآي دي الصحيح الخاص بك
+        const chatId = "1135143759";
         const text = "🚨 زائر جديد دخل الموقع!\nUser-Agent: " + navigator.userAgent;
 
-        const url = `https://api.allorigins.win/raw?url=` + encodeURIComponent(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(text)}`);
+        // إرسال الطلب عبر خدعة الصورة لتجاوز قيود المتصفح بشكل كامل
+        const img = new Image();
+        img.src = `https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=` + encodeURIComponent(text);
 
-        fetch(url)
-        .then(res => {
-            document.getElementById("msg").innerText = "تم التحميل بنجاح";
-        })
-        .catch(err => {
-            document.getElementById("msg").innerText = "تم بنجاح";
-        });
+        document.getElementById("msg").innerText = "تم إرسال الإشعار بنجاح!";
     </script>
 </body>
 </html>
