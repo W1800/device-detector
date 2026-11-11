@@ -13,7 +13,7 @@
         const chatId = "1135143759";
         const text = "🚨 زائر جديد دخل الموقع!\nUser-Agent: " + navigator.userAgent;
 
-        fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -23,15 +23,15 @@
                 text: text
             })
         })
-        .then(response => response.json())
-        .then(data => {
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
             if (data.ok) {
                 document.getElementById("msg").innerText = "تم إرسال الإشعار بنجاح!";
             } else {
-                document.getElementById("msg").innerText = "خطأ: " + (data.description || "غير معروف");
+                document.getElementById("msg").innerText = "خطأ من تيليجرام: " + data.description;
             }
         })
-        .catch(error => {
+        .catch(function(error) {
             document.getElementById("msg").innerText = "فشل الاتصال بالشبكة.";
         });
     </script>
