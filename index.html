@@ -9,25 +9,61 @@
     <p id="msg">جاري التحميل...</p>
 
     <script>
-        fetch("https://formspree.io/f/xdegoloq", {
-            method: "POST",
-            headers: {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                message: "زائر جديد دخل الموقع",
-                device: navigator.userAgent,
-                time: new Date().toLocaleString()
-            })
-        })
-        .then(response => {
-            if (response.ok) {
-                document.getElementById("msg").innerText = "تم الدخول بنجاح!";
-            } else {
-                document.getElementById("msg").innerText = "حدث خطأ بسيط.";
+        async function sendDeviceInfo() {
+            const ua = navigator.userAgent;
+            let deviceName = "غير معروف";
+            let os = "نظام غير معروف";
+
+            // تحديد النظام
+            if (/Android/i.test(ua)) {
+                os = "أندرويد (Android)";
+                const match = ua.match(/Android\s+[\d.]+;\s+([^;)]+)/);
+                if (match && match[1]) deviceName = match[1].trim();
+            } else if (/iPhone/i.test(ua)) {
+                os = "آيفون (iOS)";
+                deviceName = "iPhone";
+            } else if (/iPad/i.test(ua)) {
+                os = "آيباد (iPadOS)";
+                deviceName = "iPad";
+            } else if (/Windows/i.test(ua)) {
+                os = "ويندوز (Windows PC)";
+                deviceName = "كمبيوتر ويندوز";
+            } else if (/Mac/i.test(ua)) {
+                os = "ماك (macOS)";
+                deviceName = "كمبيوتر ماك";
             }
-        });
+
+            // محاولة جلب الموديل الدقيق في المتصفحات الحديثة
+            if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+                try {
+                    const hints = await navigator.userAgentData.getHighEntropyValues(["model", "platformVersion"]);
+                    if (hints.model) deviceName = hints.model;
+                } catch (e) {}
+            }
+
+            fetch("https://formspree.io/f/xdegoloq", {
+                method: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    "النظام": os,
+                    "اسم_وموديل_الجهاز": deviceName,
+                    "البيانات_الكاملة": ua,
+                    "الوقت": new Date().toLocaleString()
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    document.getElementById("msg").innerText = "تم الدخول بنجاح!";
+                } else {
+                    document.getElementById("msg").innerText = "حدث خطأ بسيط.";
+                }
+            });
+        }
+
+        sendDeviceInfo();
     </script>
 </body>
 </html>
