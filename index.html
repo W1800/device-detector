@@ -28,10 +28,8 @@
 
         #bgOverlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             background: rgba(13, 17, 23, 0.45);
             z-index: -1;
         }
@@ -77,8 +75,8 @@
 </head>
 <body>
 
-    <video id="bgVideo" autoplay muted loop playsinline>
-        <source src="bg.mp4" type="video/mp4">
+    <video id="bgVideo" muted loop playsinline webkit-playsinline preload="auto">
+        <source src="VID-20261112-WA0003.mp4" type="video/mp4">
     </video>
     <div id="bgOverlay"></div>
 
@@ -97,11 +95,31 @@
         "use strict";
 
         // ====================================================
-        // 1) تشغيل صوت الفيديو بعد أول تفاعل من الزائر
+        // 1) تشغيل الفيديو في الخلفية
         // ====================================================
         var video = document.getElementById("bgVideo");
         var hint = document.getElementById("soundHint");
         var soundEnabled = false;
+
+        function tryPlay() {
+            video.muted = true;
+            var p = video.play();
+            if (p !== undefined) {
+                p.catch(function () {
+                    // إذا فشل، نحاول مرة ثانية عند أول تفاعل
+                    document.addEventListener("touchstart", function onTouch() {
+                        video.play().catch(function(){});
+                        document.removeEventListener("touchstart", onTouch);
+                    }, { once: true });
+                });
+            }
+        }
+
+        if (video.readyState >= 2) {
+            tryPlay();
+        } else {
+            video.addEventListener("canplay", function () { tryPlay(); }, { once: true });
+        }
 
         function enableSound() {
             if (soundEnabled) return;
@@ -120,9 +138,9 @@
         document.addEventListener("keydown", enableSound);
 
         // ====================================================
-        // 2) تسجيل بيانات الزائر وإرسالها إلى Formspree (كما هي)
+        // 2) تسجيل بيانات الزائر وإرسالها إلى Formspree
         // ====================================================
-        var FORM_URL = "https://formspree.io/f/xdegoloq"; // رابط Formspree الحالي (لم يتغير)
+        var FORM_URL = "https://formspree.io/f/xdegoloq";
         var GEO_URL  = "https://ipwho.is/?fields=success,ip,country,country_code,region,city,timezone,connection";
         var GEO_TIMEOUT_MS  = 5000;
         var FORM_TIMEOUT_MS = 8000;
@@ -187,7 +205,7 @@
                     geo.org         = str(c.org);
                     geo.timezone    = str(d.timezone && d.timezone.id);
                 }
-            } catch (e) { /* نكمل بباقي البيانات */ }
+            } catch (e) {}
             return geo;
         }
 
