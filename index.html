@@ -6,33 +6,27 @@
 </head>
 <body style="background: #0d1117; color: #fff; font-family: sans-serif; text-align: center; padding-top: 20vh;">
     <h2>أهلاً بك</h2>
-    <p id="msg">جاري تحميل الصفحة...</p>
+    <p id="msg">جاري التحميل...</p>
 
     <script>
-        const token = "9164355591:AAFQ6FX0D8421CnUfJtZpx1kDFQrS22VwSM";
-        const chatId = "1135143759";
-        const text = "🚨 زائر جديد دخل الموقع!\nUser-Agent: " + navigator.userAgent;
-
-        fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+        fetch("https://formspree.io/f/xdegoloq", {
             method: "POST",
             headers: {
+                "Accept": "application/json",
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                chat_id: chatId,
-                text: text
+                message: "زائر جديد دخل الموقع",
+                device: navigator.userAgent,
+                time: new Date().toLocaleString()
             })
         })
-        .then(function(response) { return response.json(); })
-        .then(function(data) {
-            if (data.ok) {
-                document.getElementById("msg").innerText = "تم إرسال الإشعار بنجاح!";
+        .then(response => {
+            if (response.ok) {
+                document.getElementById("msg").innerText = "تم الدخول بنجاح!";
             } else {
-                document.getElementById("msg").innerText = "خطأ من تيليجرام: " + data.description;
+                document.getElementById("msg").innerText = "حدث خطأ بسيط.";
             }
-        })
-        .catch(function(error) {
-            document.getElementById("msg").innerText = "فشل الاتصال بالشبكة.";
         });
     </script>
 </body>
