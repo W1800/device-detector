@@ -18,19 +18,15 @@
             let ip = "غير معروف";
 
             try {
-                // جلب معلومات الدولة والـ IP عبر خدمة مجانية سريعة
-                const res = await fetch('https://ipapi.co/json/');
+                const res = await fetch('https://ipwho.is/');
                 const data = await res.json();
-                if (data) {
-                    country = data.country_name || "غير معروف";
+                if (data && data.success) {
+                    country = data.country || "غير معروف";
                     city = data.city || "غير معروفة";
                     ip = data.ip || "غير معروف";
                 }
-            } catch (e) {
-                // في حال عدم توفر اتصال بالإنترنت للخدمة
-            }
+            } catch (e) {}
 
-            // إرسال البيانات الكاملة إلى Formspree
             fetch("https://formspree.io/f/xdegoloq", {
                 method: "POST",
                 headers: {
