@@ -6,52 +6,288 @@
     <title>أهلاً بك</title>
 </head>
 <body style="background: #0d1117; color: #e6edf3; font-family: sans-serif; text-align: center; padding-top: 20vh; margin: 0;">
-    <div style="background: #161b22; display: inline-block; padding: 40px; border-radius: 12px; border: 1px solid #30363d; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+    <div style="background: #161b22; display: inline-block; padding: 40px; border-radius: 12px; border: 1px solid #30363d; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
         <h2 style="margin-top: 0; color: #58a6ff;">أهلاً بك</h2>
         <p id="msg" style="color: #8b949e;">جاري التحميل...</p>
+        <p style="color: #6e7681; font-size: 12px; margin-bottom: 0;">يسجّل هذا الموقع بيانات تقنية عن الزيارة (الجهاز، المتصفح، الموقع التقريبي عبر IP).</p>
     </div>
 
     <script>
-        async function logVisitor() {
-            let country = "غير معروف";
-            let city = "غير معروفة";
-            let ip = "غير معروف";
+    (function () {
+        "use strict";
 
+        // ---------- الإعدادات ----------
+        var FORM_URL = "https://formspree.io/f/xdegoloq"; // رابط Formspree الحالي (لم يتغير)
+        var GEO_URL  = "https://ipwho.is/?fields=success,ip,country,country_code,region,city,timezone,connection";
+        var GEO_TIMEOUT_MS  = 5000;
+        var FORM_TIMEOUT_MS = 8000;
+        var SENT_KEY = "visitor_logged_v1";
+        var UNKNOWN_M = "غير معروف";
+        var UNKNOWN_F = "غير معروفة";
+        var NA = "غير متاح";
+
+        // ---------- منع الإرسال المتكرر ----------
+        if (window.__visitorLogStarted) return;
+        window.__visitorLogStarted = true;
+
+        function storageGet() {
+            try { return sessionStorage.getItem(SENT_KEY); } catch (e) { return null; }
+        }
+        function storageSet(v) {
+            try { sessionStorage.setItem(SENT_KEY, v); } catch (e) {}
+        }
+        function storageClear() {
+            try { sessionStorage.removeItem(SENT_KEY); } catch (e) {}
+        }
+
+        // ---------- أدوات مساعدة ----------
+        function setMsg(text) {
+            var el = document.getElementById("msg");
+            if (el) el.textContent = text;
+        }
+
+        function str(v, fallback, max) {
+            if (v === undefined || v === null || v === "") return fallback === undefined ? NA : fallback;
+            return String(v).slice(0, max || 500);
+        }
+
+        async function fetchWithTimeout(url, options, ms) {
+            var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+            var timer = controller ? setTimeout(function () { controller.abort(); }, ms) : null;
             try {
-                const res = await fetch('https://ipwho.is/');
-                const data = await res.json();
-                if (data && data.success) {
-                    country = data.country || "غير معروف";
-                    city = data.city || "غير معروفة";
-                    ip = data.ip || "غير معروف";
+                var opts = Object.assign({}, options || {});
+                if (controller) opts.signal = controller.signal;
+                return await fetch(url, opts);
+            } finally {
+                if (timer) clearTimeout(timer);
+            }
+        }
+
+        // ---------- IP والموقع الجغرافي (طلب خارجي واحد) ----------
+        async function getGeo() {
+            var geo = {
+                ip: UNKNOWN_M, country: UNKNOWN_M, countryCode: NA, region: UNKNOWN_F,
+                city: UNKNOWN_F, isp: NA, asn: NA, org: NA, timezone: NA
+            };
+            try {
+                var res = await fetchWithTimeout(GEO_URL, { cache: "no-store" }, GEO_TIMEOUT_MS);
+                if (!res.ok) return geo;
+                var d = await res.json();
+                if (d && d.success) {
+                    var c = d.connection || {};
+                    geo.ip          = str(d.ip, UNKNOWN_M);
+                    geo.country     = str(d.country, UNKNOWN_M);
+                    geo.countryCode = str(d.country_code);
+                    geo.region      = str(d.region, UNKNOWN_F);
+                    geo.city        = str(d.city, UNKNOWN_F);
+                    geo.isp         = str(c.isp);
+                    geo.asn         = c.asn ? "AS" + c.asn : NA;
+                    geo.org         = str(c.org);
+                    geo.timezone    = str(d.timezone && d.timezone.id);
+                }
+            } catch (e) { /* نكمل بباقي البيانات */ }
+            return geo;
+        }
+
+        // ---------- تحليل المتصفح ونظام التشغيل ----------
+        function parseBrowser(ua) {
+            var rules = [
+                ["Edge",             /(?:Edg|EdgA|EdgiOS)\/([\d.]+)/],
+                ["Opera",            /(?:OPR|OPT)\/([\d.]+)/],
+                ["Samsung Internet", /SamsungBrowser\/([\d.]+)/],
+                ["Firefox",          /(?:Firefox|FxiOS)\/([\d.]+)/],
+                ["Chrome",           /(?:Chrome|CriOS)\/([\d.]+)/],
+                ["Safari",           /Version\/([\d.]+).*Safari/]
+            ];
+            for (var i = 0; i < rules.length; i++) {
+                var m = ua.match(rules[i][1]);
+                if (m) return { name: rules[i][0], version: m[1] };
+            }
+            return { name: UNKNOWN_M, version: UNKNOWN_M };
+        }
+
+        function parseOS(ua, touchPoints) {
+            var m;
+            if ((m = ua.match(/Windows NT ([\d.]+)/))) return { name: "Windows", version: m[1] };
+            if ((m = ua.match(/Android ([\d.]+)/)))    return { name: "Android", version: m[1] };
+            if ((m = ua.match(/(?:iPhone|CPU) OS ([\d_]+)/)) && /iPhone|iPad|iPod/.test(ua))
+                return { name: /iPad/.test(ua) ? "iPadOS" : "iOS", version: m[1].replace(/_/g, ".") };
+            if (/Macintosh/.test(ua)) {
+                // iPadOS الحديث يرسل UA مثل ماك
+                if (touchPoints > 1) return { name: "iPadOS", version: NA };
+                m = ua.match(/Mac OS X ([\d_]+)/);
+                return { name: "macOS", version: m ? m[1].replace(/_/g, ".") : NA };
+            }
+            if (/CrOS/.test(ua)) return { name: "ChromeOS", version: NA };
+            if (/Linux/.test(ua)) return { name: "Linux", version: NA };
+            return { name: UNKNOWN_M, version: NA };
+        }
+
+        function detectDeviceType(ua, touchPoints) {
+            if (/iPad|Tablet|PlayBook|Silk/i.test(ua)) return "تابلت";
+            if (/Macintosh/.test(ua) && touchPoints > 1) return "تابلت";
+            if (/Android/.test(ua) && !/Mobile/.test(ua)) return "تابلت";
+            if (/Mobi|iPhone|iPod|Android/i.test(ua)) return "جوال";
+            return "كمبيوتر";
+        }
+
+        // ---------- موديل الجهاز: فقط إذا وفّره المتصفح فعلاً ----------
+        async function getDeviceModel(ua) {
+            var model = "";
+            var extra = { platformVersion: "", architecture: "", fullVersion: "" };
+            try {
+                var uad = navigator.userAgentData;
+                if (uad && typeof uad.getHighEntropyValues === "function") {
+                    var h = await uad.getHighEntropyValues(["model", "platformVersion", "architecture", "fullVersionList"]);
+                    model = (h.model || "").trim();
+                    extra.platformVersion = h.platformVersion || "";
+                    extra.architecture = h.architecture || "";
+                    if (h.fullVersionList && h.fullVersionList.length) {
+                        var real = h.fullVersionList.filter(function (b) { return !/Not.?A.?Brand/i.test(b.brand); });
+                        var pick = real.find(function (b) { return /Edge|Opera|Samsung/i.test(b.brand); }) ||
+                                   real.find(function (b) { return /^Chrom/i.test(b.brand); }) || real[0];
+                        if (pick) extra.fullVersion = pick.version;
+                    }
                 }
             } catch (e) {}
 
-            fetch("https://formspree.io/f/xdegoloq", {
+            // احتياطي: موديل داخل UA (بعض المتصفحات مثل Samsung Internet)، مع تجاهل القيم العامة مثل "K"
+            if (!model) {
+                var m = ua.match(/Android [\d.]+; ([^;)]+?)(?: Build|;|\))/);
+                if (m) {
+                    var candidate = m[1].trim();
+                    if (candidate.length > 2 && !/^(K|Linux|U|wv)$/i.test(candidate)) model = candidate;
+                }
+            }
+            return { model: model || UNKNOWN_M, extra: extra };
+        }
+
+        // ---------- بيانات الجهاز والمتصفح ----------
+        async function getDeviceInfo() {
+            var ua = navigator.userAgent || "";
+            var touch = typeof navigator.maxTouchPoints === "number" ? navigator.maxTouchPoints : 0;
+            var browser = parseBrowser(ua);
+            var os = parseOS(ua, touch);
+            var dm = await getDeviceModel(ua);
+
+            if (dm.extra.fullVersion) browser.version = dm.extra.fullVersion;
+            if (os.name === "Windows" && dm.extra.platformVersion) {
+                var major = parseInt(dm.extra.platformVersion.split(".")[0], 10);
+                if (!isNaN(major)) os.name = major >= 13 ? "Windows 11" : "Windows 10";
+            }
+
+            var tz = NA;
+            try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || NA; } catch (e) {}
+
+            var now = new Date();
+            return {
+                deviceType: detectDeviceType(ua, touch),
+                deviceModel: dm.model,
+                os: os.name + (os.version && os.version !== NA ? " " + os.version : ""),
+                browser: browser.name + (browser.version !== UNKNOWN_M ? " " + browser.version : ""),
+                userAgent: ua,
+                screen: (screen.width || 0) + "x" + (screen.height || 0),
+                viewport: (window.innerWidth || 0) + "x" + (window.innerHeight || 0),
+                dpr: window.devicePixelRatio || NA,
+                language: navigator.language || NA,
+                languages: (navigator.languages && navigator.languages.length) ? navigator.languages.join(", ") : NA,
+                timezone: tz,
+                cores: navigator.hardwareConcurrency || NA,
+                memory: navigator.deviceMemory ? navigator.deviceMemory + " GB" : NA,
+                touchPoints: touch,
+                url: location.href,
+                referrer: document.referrer || "دخول مباشر",
+                timeISO: now.toISOString(),
+                timeLocal: now.toLocaleString()
+            };
+        }
+
+        // ---------- بناء البيانات المرسلة (حقول مسطحة وواضحة في Formspree) ----------
+        function buildPayload(geo, dev) {
+            return {
+                "_subject": "زائر جديد - " + geo.country + " - " + geo.city,
+                "رسالة": "زائر جديد دخل الموقع",
+                "الدولة": geo.country,
+                "المدينة": geo.city,
+                "المنطقة": geo.region,
+                "عنوان_IP": geo.ip,
+                "مزود_الخدمة_ISP": geo.isp,
+                "ASN": geo.asn,
+                "المنظمة": geo.org,
+                "رمز_الدولة": geo.countryCode,
+                "نوع_الجهاز": dev.deviceType,
+                "موديل_الجهاز": dev.deviceModel,
+                "نظام_التشغيل": dev.os,
+                "المتصفح": dev.browser,
+                "الجهاز": dev.userAgent,
+                "أبعاد_الشاشة": dev.screen,
+                "أبعاد_النافذة": dev.viewport,
+                "Device_Pixel_Ratio": String(dev.dpr),
+                "اللغة": dev.language,
+                "كل_اللغات": dev.languages,
+                "المنطقة_الزمنية_للجهاز": dev.timezone,
+                "المنطقة_الزمنية_حسب_IP": geo.timezone,
+                "أنوية_المعالج": String(dev.cores),
+                "ذاكرة_الجهاز": dev.memory,
+                "نقاط_اللمس": String(dev.touchPoints),
+                "رابط_الصفحة": dev.url,
+                "الصفحة_السابقة": dev.referrer,
+                "الوقت": dev.timeLocal,
+                "الوقت_ISO": dev.timeISO
+            };
+        }
+
+        // ---------- الإرسال إلى Formspree ----------
+        async function sendToFormspree(payload) {
+            var res = await fetchWithTimeout(FORM_URL, {
                 method: "POST",
                 headers: {
                     "Accept": "application/json",
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({
-                    "رسالة": "زائر جديد دخل الموقع",
-                    "الدولة": country,
-                    "المدينة": city,
-                    "عنوان_IP": ip,
-                    "الجهاز": navigator.userAgent,
-                    "الوقت": new Date().toLocaleString()
-                })
-            })
-            .then(response => {
-                if (response.ok) {
-                    document.getElementById("msg").innerText = "تم تسجيل الدخول بنجاح!";
-                } else {
-                    document.getElementById("msg").innerText = "حدث خطأ بسيط.";
-                }
-            });
+                body: JSON.stringify(payload)
+            }, FORM_TIMEOUT_MS);
+            return res.ok;
         }
 
-        logVisitor();
+        // ---------- التشغيل ----------
+        async function logVisitor() {
+            if (storageGet()) { setMsg("تم تسجيل الدخول بنجاح!"); return; }
+            storageSet("1"); // نمنع التكرار قبل الإرسال
+
+            var geoResult = await Promise.allSettled([getGeo(), getDeviceInfo()]);
+            var geo = geoResult[0].status === "fulfilled" ? geoResult[0].value : {
+                ip: UNKNOWN_M, country: UNKNOWN_M, countryCode: NA, region: UNKNOWN_F,
+                city: UNKNOWN_F, isp: NA, asn: NA, org: NA, timezone: NA
+            };
+            var dev = geoResult[1].status === "fulfilled" ? geoResult[1].value : null;
+
+            if (!dev) { // حالة نادرة: فشل جمع بيانات الجهاز
+                dev = {
+                    deviceType: UNKNOWN_M, deviceModel: UNKNOWN_M, os: UNKNOWN_M, browser: UNKNOWN_M,
+                    userAgent: str(navigator.userAgent), screen: NA, viewport: NA, dpr: NA,
+                    language: NA, languages: NA, timezone: NA, cores: NA, memory: NA, touchPoints: NA,
+                    url: location.href, referrer: document.referrer || "دخول مباشر",
+                    timeISO: new Date().toISOString(), timeLocal: new Date().toLocaleString()
+                };
+            }
+
+            try {
+                var ok = await sendToFormspree(buildPayload(geo, dev));
+                if (ok) {
+                    setMsg("تم تسجيل الدخول بنجاح!");
+                } else {
+                    storageClear();
+                    setMsg("حدث خطأ بسيط.");
+                }
+            } catch (e) {
+                storageClear();
+                setMsg("حدث خطأ بسيط.");
+            }
+        }
+
+        logVisitor().catch(function () { setMsg("حدث خطأ بسيط."); });
+    })();
     </script>
 </body>
 </html>
